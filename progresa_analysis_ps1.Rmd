@@ -1,0 +1,279 @@
+---
+title: "progresa_analysis_ps1"
+author: "Kaylee Cho"
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r, warning=FALSE}
+# Graphical Exploration
+#load the data
+library(tidyverse)
+progresa <- read_delim("/Users/pc/OneDrive/바탕 화면/INFO 371/classnotes/data/progresa-sample.csv")
+```
+```{r}
+#1.
+nrow(progresa) # 77250 rows(=cases)
+progresa %>% 
+  select(village) %>% 
+  unique() %>% 
+  count()  # 505 villages
+progresa %>% 
+  filter(poor == 'pobre') %>% 
+  count() # 65392 poor in progresa villages
+```
+
+```{r}
+#2.
+progresa %>%
+  filter(year == 98) %>% 
+  filter(poor == "pobre") %>% 
+  group_by(village) %>% 
+  drop_na(sc) %>%
+  summarize(avg = mean(sc)) #avg schooling rate of the poor in 1998
+progresa %>% 
+  filter(year == 97) %>% 
+  filter(poor == "pobre") %>% 
+  group_by(village) %>% 
+  drop_na(sc) %>% 
+  summarize(avg = mean(sc)) #avg schooling rate of the poor in 1997
+```
+
+```{r}
+#3.
+progresa %>% 
+  filter(year == 98) %>% 
+  filter(progresa == "0") %>% 
+  filter(poor == "pobre") %>% 
+  drop_na(sc) %>% 
+  summarize(avg = mean(sc)) #non-progres 1998: 80.8%
+progresa %>% 
+  filter(year == 98) %>% 
+  filter(progresa == "basal") %>% 
+  filter(poor == "pobre") %>% 
+  drop_na(sc) %>% 
+  summarize(avg = mean(sc)) #progres 1998: 84.6%
+progresa %>% 
+  filter(year == 97) %>% 
+  filter(progresa == "0") %>% 
+  filter(poor == "pobre") %>% 
+  drop_na(sc) %>% 
+  summarize(avg = mean(sc)) #non-progres 1997: 81.5%
+progresa %>% 
+  filter(year == 97) %>% 
+  filter(progresa == "basal") %>%
+  filter(poor == "pobre") %>% 
+  drop_na(sc) %>% 
+  summarize(avg = mean(sc)) #progres 1997: 82.3%
+```
+```{r, warning=FALSE}
+#4.
+non_progresa_97 <- progresa %>%
+  filter(year == 97) %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "0") %>% 
+  drop_na(sc) %>% 
+  group_by(village) %>% 
+  summarise(schooling = mean(sc))
+
+progresa_97 <- progresa %>%
+  filter(year == 97) %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "basal") %>% 
+  drop_na(sc) %>% 
+  group_by(village) %>% 
+  summarise(schooling = mean(sc))
+
+library(ggplot2)
+
+ggplot() + 
+  geom_density(aes(schooling, fill = "no progresa"), alpha = .2, data = non_progresa_97) +
+  geom_vline(xintercept = mean(non_progresa_97$schooling), colour="blue", size=2) +
+  geom_density(aes(schooling, fill = "progresa"), alpha = .2, data = progresa_97) +
+  geom_vline(xintercept = mean(progresa_97$schooling), colour="red", size=1) +
+  scale_fill_manual(name = "Treatment", values = c("red", "sky blue")) +
+  labs(title = "Schooling rate 1997 in progresa/non-progresa villages")
+```
+```{r}
+#5.
+non_progresa_98 <- progresa %>%
+  filter(year == 98) %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "0") %>% 
+  drop_na(sc) %>% 
+  group_by(village) %>% 
+  summarise(schooling = mean(sc))
+
+progresa_98 <- progresa %>%
+  filter(year == 98) %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "basal") %>% 
+  drop_na(sc) %>% 
+  group_by(village) %>% 
+  summarise(schooling = mean(sc))
+
+library(ggplot2)
+
+ggplot() + 
+  geom_density(aes(schooling, fill = "no progresa"), alpha = .2, data = non_progresa_98) +
+  geom_density(aes(schooling, fill = "progresa"), alpha = .2, data = progresa_98) +
+  scale_fill_manual(name = "Treatment", values = c("red", "sky blue")) +
+  geom_vline(xintercept = mean(non_progresa_97$schooling), color = "red", size=2) +
+  geom_vline(xintercept = mean(progresa_97$schooling), color = "blue", size=1) +
+  labs(title = "Schooling rate 1998 in progresa/non-progresa villages")
+```
+```{r}
+#6.
+# the average schooling rate for 1997 and 1998 both no progresa and progresa are similar. The distribution does look different from 1997 and 1998 for progresa since the schooling rate when it reached the highest density increased from 1997 to 1998.
+```
+
+```{r}
+# Measuring impact
+# 2.1 Cross-Sectional (CS) Estimator
+# 2.1.1
+# The assumption behind CS estimator is that it captures a true value of beta 1 = E[y|T=1] - E[y|T=0] when random controlled trial with large sample size is available. It has its base on weak law of large numbers. More explanation is available on MachineLearning.pdf page 174.
+# For this example, since we are comparing control group(aka.non-treated villages) non-progresa villages with treatment group progresa villages it satisfies CS estimator condition.
+```
+
+```{r}
+# 2.1.2
+# Since we are looking at comparing treated and non-treated group in CS estimate, we have to compare the households that were eligible for the progresa program who were the poor in Mexico. Also, to evaluate if the program is effective we should have two group non-treated and treated which is 1998 the year after the treatment started.
+```
+
+```{r}
+# 2.1.3
+treatment_schooling <- progresa %>% 
+  filter(year == "98") %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "basal") %>% 
+  drop_na(sc) %>% 
+  summarize(schooling = mean(sc)) # treatement group avg schooling rate
+
+non_treatement_schooling <- progresa %>% 
+  filter(year == "98") %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "0") %>% 
+  drop_na(sc) %>% 
+  summarize(schooling = mean(sc)) # non-treatment group avg schooling rate
+
+treatment_schooling - non_treatement_schooling # difference btw treatment and non-treatment group
+```
+```{r}
+# 2.1.4
+# progresa village has 3.88 higher schooling rate than non-progresa villages. So, progresa was effective in increasing schooling rate in the poor villages.
+```
+
+```{r}
+# 2.1.5
+# data with the poor - contains both non & treatment group
+progresa_poor <- progresa %>% 
+  filter(year == "98") %>% 
+  filter(poor == "pobre") %>% 
+  drop_na(sc)
+# create dummy variable
+progresa_poor$treated <- ifelse(progresa_poor$progresa == "basal", 1, 0) # if treated = 1
+# create regression model
+m <- lm(sc ~ treated, data=progresa_poor)
+m
+```
+```{r}
+# 2.1.6
+# Intercept indicates beta 0, in this case it indicates average schooling rate without treatment in the poor villages. 0.03884216 Treated indicates the slope in front of beta 1. It tells that treatment villages(aka. progresa village) has 0.0388 percent higher schooling rate than the ones that didn't receive treatment. The results are the same as above.
+```
+
+```{r}
+# 2.1.7
+# Yes, both conditions treatment and non-treatment are statistically significant according to significance codes. Intercept and treated both have ***.
+summary(m)
+```
+
+```{r}
+# 2.1.8
+# create multiple regression model
+m <- lm(sc ~ treated + min_dist + hohedu + fam_n, data=progresa_poor)
+m
+```
+```{r}
+# 2.1.9
+# The results slightly changed but not too much of a difference. min_dist and hohedu seems to change the result substantially but not significantly. fam_n (family size) tends to have negative correlation with average schooling rate since it has negative slope.
+```
+
+```{r}
+# 2.2 Before-After Estimator
+# 2.2.1
+# For BA estimator we are comparing same control group but treatment and after treatment. This entails an assumption that it would capture true beta 1 value when E[Epsilon|t=1] - E[Epsilon|t=0] = 0 assuming that there is no other unobserved trend and that expected disturbance  term before and after treatment is similar.
+```
+
+```{r}
+# 2.2.2
+# Because we are comparing only treatment groups (one group) focusing on the time difference. So, we will be comparing same group but before (= 1997) and after (= 1998).
+```
+
+```{r}
+# 2.2.3
+# before - 1997
+before_97 <- progresa %>% 
+  filter(year == "97") %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "basal") %>% 
+  drop_na(sc) %>% 
+  summarize(schooling = mean(sc))
+
+# after - 1998
+after_98 <- progresa %>% 
+  filter(year == "98") %>% 
+  filter(poor == "pobre") %>% 
+  filter(progresa == "basal") %>% 
+  drop_na(sc) %>% 
+  summarize(schooling = mean(sc))
+
+after_98 - before_97   # 0.02378223399 increase in schooling rate
+```
+```{r}
+# 2.2.4
+# based on the number, progresa increased schooling rate by 0.0237822339 percent. The program is effective.
+```
+
+```{r}
+# 2.2.5
+progresa_BA <- progresa %>%
+  filter(poor == "pobre") %>% 
+  filter(progresa == "basal") %>% 
+  drop_na(sc)
+# creating dummy variable
+progresa_BA$after <- ifelse(progresa_BA$year == "98", 1, 0) # if after = 1
+#create linear regression model
+m <- lm(sc ~ after, data = progresa_BA)
+m
+```
+```{r}
+# 2.2.6
+# Intercept being the beta 0 indicating before avg schooling rate of progresa village and after indicating the slope of beta 1 indicating the 2.38 percent increase in schooling rate after (aka. at 1988) the results are the same.
+```
+
+```{r}
+# 2.2.7
+# The results are all statistically significant. They all have ***.
+summary(m)
+```
+```{r}
+#2.2.8
+# create multiple regression model
+m <- lm(sc ~ after + min_dist + hohedu + fam_n, data = progresa_BA)
+m
+```
+```{r}
+#2.2.9
+# the results slightly changed but not too much. min_dist and hohedu seems to change the result substantially but not significantly. fam_n (family size) tends to have negative correlation with average schooling rate since it has negative slope.
+```
+
+```{r}
+#2.2.10
+# Even though we didn't have significant difference in results for CS and BA multiple linear regression model, I would say that BA model is more convincing because BA estimates result within the same group (aka. poor village with progresa treatment). I value time difference as a plausible indicator that can show the effectiveness of progresa program and also think that there could be other underlying factors that could influence CS estimator making it less plausible (such as family conditions or personality factors of the kid that might be very different for control and treatment group).
+```
+
+```{r}
+# 2.2.10 (corrected)
+# Before and After assumes that there is no unobserved trend but we don't know if that is the case for Before and After for same year. Cross sectional is more plausible in this case because the data was based on randomized control trial.
+```
+
+
