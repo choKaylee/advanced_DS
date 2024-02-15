@@ -1,0 +1,169 @@
+---
+title: "ps02_dff_in_diff_est"
+author: "Kaylee Cho"
+date: "`r Sys.Date()`"
+output: html_document
+---
+## 1. Was the Randomization done correctly?
+### 1.1
+```{r, warning=FALSE}
+library(tidyverse)
+progresa <- read_delim("/Users/pc/OneDrive/바탕 화면/INFO 371/classnotes/data/progresa-sample.csv")
+```
+
+```{r}
+# create an empty data frame
+df <- data.frame(variable_name = character(0), average_T = numeric(0), average_C = numeric(0), difference_TC = numeric(0), p_value = numeric(0))
+
+
+exclude_names <- c("folnum", "village", "year", "progresa", "poor")
+variable_names <- names(progresa)
+variable_names <- variable_names[!(variable_names %in% exclude_names)]
+
+progresa_97 <- progresa %>% 
+    filter(year == 97) %>% 
+    filter(poor == "pobre")
+
+for (variable_name in variable_names) {
+  column_T = na.omit(progresa_97[progresa_97$progresa == "basal", variable_name][[1]])
+  column_C = na.omit(progresa_97[progresa_97$progresa == "0", variable_name][[1]])
+  average_T = mean(column_T, na.rm = TRUE)
+  average_C = mean(column_C, na.rm = TRUE)
+  difference_TC = average_T - average_C
+  t_test_result = t.test(column_C, column_T)
+  p_value = t_test_result$p.value
+  
+  new_row <- data.frame(variable_name = variable_name, average_T = average_T,
+                        average_C = average_C, difference_TC = difference_TC, 
+                        p_value = p_value)
+  df <- rbind(df, new_row)
+}
+print(df)
+```
+### 1.2
+To see if the difference of a average variable between treatment and control group(or any coefficient result) is statistically significant, we have to refer to its p-value. If the p value is smaller than 0.05 we say the variable is statistically significant rejecting the null hypothesis. In this case avg diff btw control group and treatment group is statistically significant. Therefore, we get to reject the null which states average variable between control group and treatment group are the same.
+
+### 1.3
+sex, indig, dist_sec, fam_n, dist_cap, hohedu, hohwag, welfare_index, hohage, age are the variables that are statistically significant. This means that for these variables the average variable btw control and treatment group is different regarding that the p-value is smaller than 0.05 for those variables that are statistically significant.
+
+### 1.4
+It's because 1997 is pre-treatment year where we get to establish a baseline to compare the outcomes of interest before the treatment is implemented. This helps control any pre-existing differences between the treatment and control groups. When thinking in terms of graph, it becomes the baseline point on a DID estimator graph for both treatment and control groups.
+
+### 1.5
+It matters because we assume that the treatment and control villages follow a parallel trend in observable characteristics. Differences in control and treatment villages observable characteristics before treatment can lead to bias and cause trouble in validity of the causal inferences.
+
+## 2. Measuring Impact
+### 2.1
+```{r}
+time <- c("before", "after")
+
+treated_before <- progresa %>%
+  filter(poor == "pobre") %>% 
+  filter(year == "97") %>% 
+  filter(progresa == "basal") %>% 
+  drop_na(sc) %>% 
+  summarize(before_T = mean(sc)) %>% 
+  pull()
+
+treated_after <- progresa %>% 
+  filter(poor == "pobre") %>%
+  filter(year == "98") %>% 
+  filter(progresa == "basal") %>%
+  drop_na(sc) %>% 
+  summarize(after_T = mean(sc)) %>% 
+  pull()
+  
+control_before <- progresa %>%
+  filter(poor == "pobre") %>%
+  filter(year == "97") %>% 
+  filter(progresa == "0") %>% 
+  drop_na(sc) %>% 
+  summarize(before_C = mean(sc)) %>% 
+  pull()
+
+control_after <- progresa %>% 
+  filter(poor == "pobre") %>%
+  filter(year == "98") %>% 
+  filter(progresa == "0") %>% 
+  drop_na(sc) %>% 
+  summarize(after_C = mean(sc)) %>% 
+  pull()
+
+df1 <- data.frame(time = "before", control = control_before, treatment = treated_before, difference = treated_before - control_before)
+df2 <- data.frame(time = "after", control = control_after, treatment = treated_after, difference = treated_after - control_after)
+new_df <- rbind(df1, df2)
+new_df
+
+did_estimator = treated_after - control_after - treated_before + control_before
+cat("did_estimator:", did_estimator)
+```
+### 2.2
+```{r}
+progresa_poor <- progresa %>%
+  filter(poor == "pobre") %>% 
+  drop_na(sc)
+# create regression model
+m = lm(sc ~ I(year == 98)* progresa, data = progresa_poor)
+summary(m)
+```
+### 2.3
+* The intercept is the baseline which is average schooling rate of the poor villages that didn't receive progresa treatment in year 1997(pre). The baseline starts at 1.547443. 
+* The year coefficient captures the difference in the baseline trend. It's the outcome growth from the pre and post indicator(i.e year). This indicates the average schooling rate for treatment group would have been -0.007549 smaller if they didn't receive the treatment.
+* Progresabasal refers to baseline difference between treatment and control group before treatment. Since it is a negative number this means that the average schooling rate for the treatment group was -3.031623 lower than the people in the control group before the progresa treatment was implemented(pre-progresa).
+* year and progresabasal intercept indicator refers to the adidtional effect of progresa as the year passes by one unit. This has a positive coefficient 0.031331 which means that progresa program is effective in increasing the average schooling rate as time goes by.
+
+### 2.4
+* the main takeaway is the fact that progresa program is efficient when it is applied within certain amount of time. It will be more efficient as time goes by.
+* the results besides the year is statistically significant since the p-value is smaller than 0.05 above. This means that we get to reject the null for progresabasal and "year * progresabasal" condition, but not for the year. Also, it's the same as saying that the year proportion in the control and treatment group are not the same.
+
+### 2.5
+```{r}
+progresa_poor <- progresa %>%
+  filter(poor == "pobre") %>% 
+  drop_na(sc)
+# create regression model
+m = lm(sc ~ year * progresa + year + progresa + hohedu + fam_n, data = progresa_poor)
+summary(m)
+```
+### 2.6
+* The results remain similar for the multiple regression results. I added hohedu, fam_n as an additional variable. The estimators from above DiD regression remained similar. 
+* hohedu has a positive estimate coefficient of 0.016063 which means that a unit increase in years of schooling of the head of household also increases the average schooling rate by the estimated coefficient.
+* fam_n is a nagative number which means that as family size increases by one unit the average schooling rate decreases by -0.0034247.
+
+### 2.7
+```{r}
+# q0.025 = µ − 1.96σ and q0.975 = µ + 1.96σ use this to calculate 95% CI
+# µ: mu for mean and σ: standard error bc we are estimating the diff in means
+mu_T <- treated_after
+mu_C <- control_after
+n_T <- length(progresa_poor$sc[progresa_poor$year == "98" 
+                               & progresa_poor$progresa == "basal"])
+n_C <- length(progresa_poor$sc[progresa_poor$year == "98" 
+                               & progresa_poor$progresa == "0"])
+s_T <- sd(progresa_poor$sc[progresa_poor$year == "98" & 
+                             progresa_poor$progresa == "basal"])
+s_C <- sd(progresa_poor$sc[progresa_poor$year == "98" & 
+                             progresa_poor$progresa == "0"])
+# Calculate the difference in means
+mu_difference <- mu_T - mu_C
+# calculating standard error of difference
+se_difference <- sqrt((s_T^2 / n_T) + (s_C^2 / n_C))
+# 95% confidence intervals
+q_0.025 <- mu_difference - 1.96 * se_difference
+q_0.975 <- mu_difference + 1.96 * se_difference
+cat("95% Confidence Interval: [", q_0.025, ",", q_0.975, "]\n")
+```
+### 2.8
+The identifying assumption behind DiD estimator for this example is that the treatment villages if not treated would follow the same slope of control village trend line when estimating average schooling rate. In terms of institutional setting, the assumption implies that there are no time-varying factors that different ally affect the treatment and control groups over time, apart from the treatment itself. In the data given we have compared whether villages in the treatment or control groups showed similar trends in the average schooling rate before the treatment.
+
+### 2.9
+* Cross sectional estimator follows the assumption that the data is collected through random sampling, ensuring that the sample is representative of the population. Also, cs estimator assumes that there is no omitted variable bias which implies that the model contains all the important and significant variables.
+* Before after estimator assumes that there is no unobserved trend among the data which implies that, in the absence of treatment, the average schooling rate for the treatment and control groups would have followed similar trends over time. It also assumes that the model estimates results based on the same control group which is poor villages that received progresa treatment in this case.
+> Comparing the two assumptions above with DiD estimator assumptions from 2.8, I would say that cross sectional estimator is most plausible among the three for several reasons.
+1. We know that the dataset is randomized from ps 1 description
+2. Before and After assumes that there is no unobserved trend but we don't know if that is the case for this dataset and given variables.
+3. DiD assumes that the treatment villages will follow similar trend following that of control village slope, but we don't know if this will be the exact case.
+
+### 2.10
+The efficacy of the progresa program is somewhat positive since for three estimators CS, BA, and DiD progresa treated villages eventually had a higher average schooling rate over time or the next following year. We can't really say about how much efficient since the coefficients from each estimators varied.
+
