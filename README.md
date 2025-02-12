@@ -1,3 +1,5 @@
+# Click on the notebooks to view cool stuff!
+
 This course covers basics of the modern statistical methods in applied data science. 
 It contains two broad blocks: causal inference, and machine learning methods. 
 Emphasis is given to practical applications using analysis of real-world data, 
