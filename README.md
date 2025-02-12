@@ -14,3 +14,4 @@ Outcomes:
 - Be able to use suitable methods in scikit-learn library.
 - Implement simple ML algorithms yourself.
 - Build and use simple neural network models.
+![image](https://github.com/user-attachments/assets/ae3753a4-2682-4e64-b93b-122f0d1e299c)
